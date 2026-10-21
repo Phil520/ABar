@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.bean.indexbar.autostart</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__APP_BINARY__</string>
+	</array>
+
+	<!-- 每天 08:00 拉起一次。App 自己在 16:00 退出、非开盘日一启动就退出，
+	     所以这里不需要判断周末和节假日，交给 App 判断即可。 -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>8</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+
+	<!-- 登录时也拉一次：如果登录时正好在运行时段，就直接起来 -->
+	<key>RunAtLoad</key>
+	<true/>
+
+	<!-- App 自己退出后不要被反复重启 -->
+	<key>KeepAlive</key>
+	<false/>
+
+	<key>ProcessType</key>
+	<string>Interactive</string>
+
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+
+	<key>StandardOutPath</key>
+	<string>/tmp/indexbar.out.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>/tmp/indexbar.err.log</string>
+</dict>
+</plist>
