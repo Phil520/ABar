@@ -1,11 +1,11 @@
-# ABar v2.0.0
+# ABar v2.1.0
 
 macOS 菜单栏上的上证指数看板。菜单栏只放一行数字，不写「上证指数」四个字。
 
 ![菜单栏效果](docs/images/menubar.png)
 
 ```
-37230.31        ← 3723 点 + 0.31%，绿色表示下跌
+36920.13        ← 3692 点 + 0.13%，绿色表示下跌
 ```
 
 点位取整数，涨跌幅取绝对值两位小数，直接相连。没有逗号、百分号、正负号，方向只靠颜色。
@@ -15,9 +15,12 @@ macOS 菜单栏上的上证指数看板。菜单栏只放一行数字，不写�
 
 | 方向 | 浅色菜单栏 | 深色菜单栏 |
 | --- | --- | --- |
-| 涨 | #D61719 | #FF5C57 |
+| 涨 | #111112 | #FFFFFF |
 | 跌 | #00783D | #33D16B |
 | 平 | 系统默认前景色 | 同左 |
+
+上涨用白字，是本机用下来的偏好：A 股的红在菜单栏那种半透明底色上发闷，白色反倒清亮。
+浅色菜单栏底色本身就是浅的，白字会糊成一片，所以那一路自动换成近黑色。
 
 断线两次以上：保留最后一次的值，整体转灰。
 
@@ -84,17 +87,35 @@ swiftc -O -framework Cocoa -o /tmp/menubarcheck tools/menubarcheck.swift && /tmp
 | 项目 | 位置 |
 | --- | --- |
 | App | `output/指数条.app` |
-| 状态项位置记忆 | `com.bean.indexbar.menubar` 域里的 `NSStatusItem Preferred Position IndexBarItem` |
-| 开机自启 | `~/Library/LaunchAgents/com.bean.indexbar.autostart.plist` |
+| Bundle ID | `com.bean.abar` |
+| 状态项位置 | 交给系统自己排（不写 `Preferred Position`，理由见「踩过的坑」） |
+| 开机自启 | `~/Library/LaunchAgents/com.bean.abar.autostart.plist` |
 | 运行日志 | `/tmp/indexbar-v2.log`（只记状态切换，量很小） |
 
 ## 踩过的坑
 
-**菜单栏状态项不显示，八成是被菜单栏管理工具挤出了屏幕。**
+**菜单栏状态项不显示，原因按出现频率排，有三种。**
 
-这台机器装了 `Hidden Bar`，它会在菜单栏插一根 **宽 5016 像素** 的占位条
+### 一、控制中心把这个 bundle id 的状态记坏了
+
+最隐蔽的一种，也最容易被误判成代码写错了。
+
+现象：进程好好跑着，标题、颜色、刷新都正常，但窗口服务器里根本查不到这块窗口，
+日志自检行写「窗口高22 未上屏」。换路径、换 autosaveName、重编译、重启控制中心，全都不管用。
+
+判据很干脆：**同一份代码放进一个只换了 bundle id 的空壳里，立刻就能上屏。**
+
+这台机器上坏过两次：一次是早先反复 `removeStatusItem` 把 `com.bean.indexbar.app` 跑坏；
+一次是外接显示器与内屏来回切换之后，`com.bean.indexbar.menubar` 也坏了。
+
+处理只有一个办法——换 id：改 `src/Info.plist` 的 `CFBundleIdentifier`，重编译。
+现在的 id 是 `com.bean.abar`。哪天又遇到同样症状，再升一位即可。
+
+### 二、被菜单栏管理工具挤出了屏幕
+
+这台机器装过 `Hidden Bar`，它会在菜单栏插一根 **宽 5016 像素** 的占位条
 （窗口名 `hiddenbar_separate`），把「隐藏区」的项整体推到屏幕左边缘之外。
-新装的状态项默认就落在那一片，表现就是进程在跑、菜单栏上什么都没有。
+新装的状态项默认就落在那一片，表现也是进程在跑、菜单栏上什么都没有。
 
 查法：看窗口服务器里状态项窗口的 x 坐标。
 
@@ -103,14 +124,22 @@ x= -3952.0  w=81.0    Item-0
 x= -3871.0  w=5016.0  hiddenbar_separate   ← Hidden Bar 的占位条
 ```
 
-修法是让状态项的位置值**小于折叠箭头的值**（值越小越靠右）：
+这时才需要写位置值，而且要**小于折叠箭头的值**（值越小越靠右）：
 
 ```bash
-defaults write com.bean.indexbar.menubar "NSStatusItem Preferred Position IndexBarItem" -int 150
+defaults write com.bean.abar "NSStatusItem Preferred Position ABarItem" -int 150
 ```
 
 实测：295 是 Hidden Bar 的折叠箭头，327 是它的占位条，大于 295 的值都会被挤到屏幕外；
 150 落在 x=1170，正常可见。
+
+### 三、位置值硬塞，反而没有槽位
+
+这条是上面那条的反面。本机实测：**不写** `Preferred Position` 时，新状态项会被系统
+排到第三方图标的左端（x≈930），正常可见；一旦硬塞一个值，要么落进隐藏区，
+要么干脆「未落位」——窗口 frame 停在 `(0, -6)`、`(0, -17)` 这种原点附近，永远上不了屏。
+
+所以现在**完全不写位置**，交给系统自己排。菜单栏工具真装了，再按第二种情况的法子调。
 
 **怎么判断到底上屏没有**：看状态项窗口的高度。33 才是被控制中心托管的真窗口；
 22 是进程自己的占位窗口，等于没上屏。日志里的自检行直接写这个：
@@ -127,7 +156,7 @@ defaults write com.bean.indexbar.menubar "NSStatusItem Preferred Position IndexB
   过不了进程边界，深浅色适配改成渲染时按按钮 `effectiveAppearance` 现算。
 - 关闭显示用 `statusItem.isVisible = false`，**不要用 `removeStatusItem` 反复销毁重建**。
   反复拆建会让控制中心把这一份 bundle id 的状态记成坏的，之后同一个 id 再也托管不上——
-  今天就是这么把 `com.bean.indexbar.app` 跑坏的，只能换 id。
+  早先就是这么把 `com.bean.indexbar.app` 跑坏的，只能换 id。
 
 ## 目录
 
@@ -136,7 +165,7 @@ src/main.swift            实现（单文件，约 650 行）
 src/Info.plist            App 配置
 build.sh                  编译打包 + 上屏自检
 tools/menubarcheck.swift  上屏自检：查窗口服务器里到底有没有这块窗口
-tools/com.bean.indexbar.autostart.plist  登录自启模板（含每天 08:00 定时）
+tools/com.bean.abar.autostart.plist  登录自启模板（含每天 08:00 定时）
 docs/开发笔记.md           排查记录，菜单栏踩坑都在这
 legacy/v1/                早期多文件实现，已停用，只作对照
 output/指数条.app          产物（不进版本库）

@@ -293,13 +293,16 @@ enum Look {
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
     }
 
-    /// 涨红跌绿（A 股口径）。必须是普通静态色——带闭包的动态色过不了进程边界。
+    /// 上涨白色、下跌绿色。必须是普通静态色——带闭包的动态色过不了进程边界。
+    ///
+    /// 白色只适合深色菜单栏。浅色菜单栏底色本身就是浅的，白字会糊成一片，
+    /// 所以浅色外观下自动换成近黑色，保证换壁纸、换屏都读得出来。
     static func color(_ direction: Int, _ appearance: NSAppearance?) -> NSColor {
         let dark = appearance.map(isDark) ?? false
         switch direction {
         case 1:
-            return dark ? NSColor(srgbRed: 1.00, green: 0.36, blue: 0.34, alpha: 1)
-                        : NSColor(srgbRed: 0.84, green: 0.09, blue: 0.11, alpha: 1)
+            return dark ? NSColor(srgbRed: 1.00, green: 1.00, blue: 1.00, alpha: 1)
+                        : NSColor(srgbRed: 0.11, green: 0.11, blue: 0.12, alpha: 1)
         case -1:
             return dark ? NSColor(srgbRed: 0.20, green: 0.82, blue: 0.42, alpha: 1)
                         : NSColor(srgbRed: 0.00, green: 0.47, blue: 0.24, alpha: 1)
@@ -364,10 +367,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let it = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        // 位置记忆：Hidden Bar 这类菜单栏管理工具会在栏里插一根超宽占位条，
-        // 把「隐藏区」的项整体推到屏幕左边缘之外。新装的项默认就落在那一片。
-        // 位置值越小越靠右，钉一个小于它折叠箭头的值，才能落在可见区。
-        it.autosaveName = "IndexBarItem"
+        // 这里刻意不设 autosaveName，也不写 Preferred Position。
+        //
+        // 位置交给系统自己排：不写的时候新项会落在第三方图标的左端，正常可见；
+        // 硬塞一个值，要么被菜单栏工具的隐藏区吞掉，要么干脆不落位（frame 停在原点），
+        // 两种都表现为「进程在跑、菜单栏上什么都没有」。
+        //
+        // 真要调位置，是等项被挤到屏幕外之后的事，见 README「踩过的坑」第二条。
         it.button?.attributedTitle = Look.attributed(nil, stale: false, appearance: nil)
         it.button?.target = self
         it.button?.action = #selector(clicked(_:))

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.bean.indexbar.autostart</string>
+	<string>com.bean.abar.autostart</string>
 
 	<key>ProgramArguments</key>
 	<array>
